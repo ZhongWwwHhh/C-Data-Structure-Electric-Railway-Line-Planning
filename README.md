@@ -11,7 +11,7 @@ GUI 使用 Electron，需要 nodejs，具体看 [Electron官方文档](https://w
 `/core` 文件夹内是 C 语言编写的核心程序，整个程序可以完全独立运行，使用**命令行界面直接互交**  
 `/gui` 文件夹内是 Electron 图形界面，只负责图形化和图形输入输出转命令行输入输出  
 具体 nodejs 与 c 互交方式参见 [nodejs与互交](https://www.cnblogs.com/dong1/p/8890892.html)，采用最末尾的方案：  
-```
+```node
 3、还有一种小众化的方式
 
 通过child_process 方式调用EXE进程来实现数据交互。
