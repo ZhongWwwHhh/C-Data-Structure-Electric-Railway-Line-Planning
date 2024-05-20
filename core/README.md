@@ -6,14 +6,232 @@
 ## 结构
 
 - 站名-编号，上述四位编号不够用，换成三位线路号+三位站编号，共六位，可以直接使用`uint32_t`存储，构成index-站名表备查  
-- 由编号组成的图，采用邻接表，从邻接表查找带权重的最短路径现有算法很多  
-- 存储，因为`line.txt`结构不够简单，并且缺失站点间距离（即权重），最好先做转换成邻接表，将邻接表序列化后存储  
+- 由编号组成的图，采用邻接表，从邻接表查找带权重的最短路径现有算法很多，采用Dijkstra  
+参见：[图算法 单源最短路径 Dijkstra算法（邻接表/邻接矩阵+优先队列STL)](https://www.cnblogs.com/dzkang2011/p/sp_dijkstra.html)
+```C++
+#include <iostream>
+#include <cstdio>
+#include <vector>
+#include <queue>
+using namespace std;
+
+#define maxn 110  //最大顶点个数
+int n;       //顶点个数
+
+struct arcnode  //边结点
+{
+    int vertex;     //与表头结点相邻的顶点编号
+    int weight;     //连接两顶点的边的权值
+    arcnode * next; //指向下一相邻接点
+    arcnode() {}
+    arcnode(int v,int w):vertex(v),weight(w),next(NULL) {}
+};
+
+struct vernode      //顶点结点，为每一条邻接表的表头结点
+{
+    int vex;    //当前定点编号
+    arcnode * firarc;   //与该顶点相连的第一个顶点组成的边
+}Ver[maxn];
+
+void Init()  //建立图的邻接表需要先初始化，建立顶点结点
+{
+    for(int i = 1; i <= n; i++)
+    {
+        Ver[i].vex = i;
+        Ver[i].firarc = NULL;
+    }
+}
+
+void Insert(int a, int b, int w)  //尾插法，插入以a为起点，b为终点，权为w的边，效率不如头插，但是可以去重边
+{
+    arcnode * q = new arcnode(b, w);
+    if(Ver[a].firarc == NULL)
+        Ver[a].firarc = q;
+    else
+    {
+        arcnode * p = Ver[a].firarc;
+        if(p->vertex == b)
+        {
+            if(p->weight > w)
+                p->weight = w;
+            return ;
+        }
+        while(p->next != NULL)
+        {
+            if(p->next->vertex == b)
+            {
+                if(p->next->weight > w)
+                    p->next->weight = w;
+                return ;
+            }
+            p = p->next;
+        }
+        p->next = q;
+    }
+}
+void Insert2(int a, int b, int w)   //头插法，效率更高，但不能去重边
+{
+    arcnode * q = new arcnode(b, w);
+    if(Ver[a].firarc == NULL)
+        Ver[a].firarc = q;
+    else
+    {
+        arcnode * p = Ver[a].firarc;
+        q->next = p;
+        Ver[a].firarc = q;
+    }
+}
+struct node     //顶点节点，保存id和到源顶点的估算距离，优先队列需要的类型
+{
+    int id;     //源顶点id和估算距离
+    int w;
+    friend bool operator<(node a, node b)   //因要实现最小堆，按升序排列，因而需要重载运算符，重定义优先级，以小为先
+    {
+        return a.w > b.w;
+    }
+};
+
+#define INF 0xfffff    //权值上限
+int parent[maxn];   //每个顶点的父亲节点，可以用于还原最短路径树
+bool visited[maxn]; //用于判断顶点是否已经在最短路径树中，或者说是否已找到最短路径
+node d[maxn];      //源点到每个顶点估算距离，最后结果为源点到所有顶点的最短路。
+priority_queue<node> q; //优先队列stl实现
+void Dijkstra(int s)    //Dijkstra算法，传入源顶点
+{
+    for(int i = 1; i <= n; i++) //初始化
+    {
+        d[i].id = i;
+        d[i].w = INF;           //估算距离置INF
+        parent[i] = -1;         //每个顶点都无父亲节点
+        visited[i] = false;     //都未找到最短路
+    }
+    d[s].w = 0;                 //源点到源点最短路权值为0
+    q.push(d[s]);               //压入队列中
+    while(!q.empty())           //算法的核心，队列空说明完成了操作
+    {
+        node cd = q.top();      //取最小估算距离顶点
+        q.pop();
+        int u = cd.id;
+        if(visited[u])   //注意这一句的深意，避免很多不必要的操作
+            continue;
+        visited[u] = true;
+        arcnode * p = Ver[u].firarc;
+        //松弛操作
+        while(p != NULL)    //找所有与他相邻的顶点，进行松弛操作，更新估算距离，压入队列。
+        {
+            int v = p->vertex;
+            if(!visited[v] && d[v].w > d[u].w+p->weight)
+            {
+                d[v].w = d[u].w+p->weight;
+                parent[v] = u;
+                q.push(d[v]);
+            }
+            p = p->next;
+        }
+    }
+}
+
+int main()
+{
+    int m, a, b, c, st, ed;
+    printf("请输入顶点数和边数：\n");
+    scanf("%d%d", &n, &m);
+    printf("请输入边以及权值（a, b, c)\n");
+    Init();     //计算前必须初始化
+    while(m--)
+    {
+        scanf("%d%d%d", &a, &b, &c);
+        Insert2(a, b, c);   //无向图注意存储两条边
+        Insert2(b, a, c);
+    }
+    printf("请输入起点和终点：\n");
+    scanf("%d%d", &st, &ed);
+    Dijkstra(st);
+    if(d[ed].w != INF)
+        printf("最短路径权值为：%d\n", d[ed].w);
+    else
+        printf("不存在从顶点%d到顶点%d的最短路径。\n", st, ed);
+    return 0;
+}
+```
+
+## 类型定义
+
+- 邻接表：直接使用上述Dijkstra算法所使用定义，建议改回纯C实现，或者你们喜欢C++就用吧。里面的maxn可以动态分，不用占额外空间。  
+```C++
+#define maxn 110  //最大顶点个数
+int n;       //顶点个数
+
+struct arcnode  //边结点
+{
+    int vertex;     //与表头结点相邻的顶点编号
+    int weight;     //连接两顶点的边的权值
+    arcnode * next; //指向下一相邻接点
+    arcnode() {}
+    arcnode(int v,int w):vertex(v),weight(w),next(NULL) {}
+};
+
+struct vernode      //顶点结点，为每一条邻接表的表头结点
+{
+    int vex;    //当前定点编号
+    arcnode * firarc;   //与该顶点相连的第一个顶点组成的边
+}Ver[maxn];
+```
+- json存储格式：node为节点index，guiCoord为图形界面绘制坐标，connectNode为邻接节点数组，其中distance为权重  
+```json
+{
+    [
+        {
+            node: 001001,
+            guiCoord: [
+                10,
+                10
+            ],
+            connectNode: [
+                {
+                    // 每一站都和其前后站点相连
+                    node: 001002,
+                    distance: 1
+                },
+                {
+                    // 部分站存在换乘，显然换乘时间更长（distance）
+                    node: 002001,
+                    distance: 10
+                }
+            ]
+        },
+        {
+            node: 001002,
+            guiCoord: [
+                10,
+                20
+            ],
+            connectNode: [
+                {
+                    node: 001001,
+                    distance: 1
+                },
+                {
+                    node: 001002,
+                    distance: 1
+                }
+            ]
+        }
+    ],
+    {"春熙路": 001001, "建设路": 001005} // 存放所有index与站名对应关系
+}
+```
 
 ## 交互
 
-非常重要：**由于Eletron调用需要尽可能简化，最好使用传参方式分离以下两种交互，比如`-gui`决定直接只接受index输入输出，无此参数才会打印提示性信息**  
+非常重要：**由于Eletron调用需要尽可能简化，最好使用传参方式分离以下两种交互，比如`--nogui`决定会打印提示性信息**  
 受题目限制，不得不保留直接输入站点名称，转成index，求路径，index转回站点名称过程  
 和图形化Electron结合，只需要接受首尾index，求路径，返回index串  
+此处定义console args：  
+```shell
+--nogui -n  打印引导
+--file  -f  指定地铁图json
+```
 
 ## 实现
 
