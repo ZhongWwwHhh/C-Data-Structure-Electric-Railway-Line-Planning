@@ -1,4 +1,6 @@
 {
+    "name": "成都地铁",
+    "map": "Img/ChengDuSubwayMap.jpg",
     "sites": {
         "001001": "韦家碾",
         "001002": "升仙湖",
