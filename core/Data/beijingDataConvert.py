@@ -77,16 +77,17 @@ for l in root.iter('l'):
     lineName = l.get('lb')
     lineIndex=find_key(lines, lineName)
     print(lineIndex)
+    siteIndex=0
     for p in l.iter('p'):
         # 获取'p'标签的'n'和'lb'属性
-        siteIndex = p.get('n')
+        siteIndex+=1
         siteName = p.get('lb')
 
         # 如果'lb'属性不存在或为空，跳过这个'p'标签
         if not siteName:
             continue
 
-        Index=lineIndex+siteIndex.zfill(3)
+        Index=lineIndex+str(siteIndex).zfill(3)
 
         sites[Index] = siteName
 
