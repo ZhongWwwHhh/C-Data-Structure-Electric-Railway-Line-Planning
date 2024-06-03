@@ -3,16 +3,265 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'" />
-    <meta http-equiv="X-Content-Security-Policy" content="default-src 'self'; script-src 'self'" />
-    <title>Hello from Electron renderer!</title>
+    <title>地铁线路图</title>
+
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        #map {
+            -webkit-app-region: no-drag;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            left: 0;
+            top: 0;
+        }
+
+        #menu {
+            position: fixed;
+            right: 5%;
+            bottom: 5%;
+            z-index: 9999;
+            background-color: white;
+            border: 1px solid #4aa0d8;
+            font-size: 20px;
+        }
+
+        .flex {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .label {
+            margin: 10px;
+        }
+
+        .select {
+            margin: 10px;
+            width: 120px;
+            position: relative;
+        }
+
+        #search {
+            margin: 10px;
+            padding: 0px 20px;
+            font-size: 20px;
+            background-color: #4aa0d8;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        #result {
+            margin: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #4aa0d8;
+            display: none;
+        }
+    </style>
 </head>
 
 <body>
-    <h1>Hello from Electron renderer!</h1>
-    <p>👋</p>
-    <p id="info"></p>
+    <img id="map" src="" />
+    <div id="menu">
+        <div class="flex">
+            <div class="label">地铁图</div>
+            <select id="subwayData" class="select">
+            </select>
+        </div>
+        <div class="flex">
+            <div class="label">始发地</div>
+            <select id="line1" class="select">
+                <option value="">--请选择地铁线--</option>
+            </select>
+            <select id="startStation" class="select">
+                <option value="">--请选择站点--</option>
+            </select>
+        </div>
+        <div class="flex">
+            <div class="label">终点地</div>
+            <select id="line2" class="select">
+                <option value="">--请选择地铁线--</option>
+            </select>
+            <select id="endStation" class="select">
+                <option value="">--请选择站点--</option>
+            </select>
+        </div>
+        <button id="search">搜索</button>
+        <div id="result"></div>
+    </div>
 </body>
+
+<script>
+    // 地区/线路/站点选项
+    const updateSubwayData = () => {
+        var subwayDataSelect = document.getElementById('subwayData');
+        var selectedSubwayValue = subwayDataSelect.options[subwayDataSelect.selectedIndex].value;
+        var selectedSubwayData = JSON.parse(selectedSubwayValue);
+        // 替换地铁图片
+        var map = document.getElementById('map')
+        var subwayMap = selectedSubwayData[0];
+        map.src = `./${subwayMap}`;
+        // 图片缩放还原
+        map.style.cssText = `
+            -webkit-app-region: no-drag;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            left: 0;
+            top: 0;
+        `;
+        // 替换站点数据
+        var subwayDataFile = selectedSubwayData[1];
+        fetch(`./Data/${subwayDataFile}`)
+            .then(response => response.json())
+            .then(data => {
+                const line1Select = document.getElementById('line1');
+                const line2Select = document.getElementById('line2');
+                // 清空原有选项
+                line1Select.innerHTML = '<option value="">--请选择地铁线--</option>';
+                line2Select.innerHTML = '<option value="">--请选择地铁线--</option>';
+                line1Select.selectedIndex = 0;
+                line2Select.selectedIndex = 0;
+                const startStationSelect = document.getElementById('startStation');
+                startStationSelect.innerHTML = '<option value="">--请选择站点--</option>';
+                startStationSelect.selectedIndex = 0;
+                const endStationSelect = document.getElementById('endStation');
+                endStationSelect.innerHTML = '<option value="">--请选择站点--</option>';
+                endStationSelect.selectedIndex = 0;
+                // 写入线路选项
+                for (const lineId in data.lines) {
+                    const lineName = data.lines[lineId];
+                    const option1 = document.createElement('option');
+                    const option2 = document.createElement('option');
+                    option1.value = lineId;
+                    option2.value = lineId;
+                    option1.textContent = lineName;
+                    option2.textContent = lineName;
+                    line1Select.appendChild(option1);
+                    line2Select.appendChild(option2);
+                }
+
+                line1Select.addEventListener('change', function () {
+                    const selectedLine = line1Select.value;
+                    const startStationSelect = document.getElementById('startStation');
+                    startStationSelect.innerHTML = '<option value="">--请选择站点--</option>';
+                    startStationSelect.selectedIndex = 0;
+                    for (const siteId in data.sites) {
+                        if (siteId.startsWith(selectedLine)) {
+                            const stationName = data.sites[siteId];
+                            const option = document.createElement('option');
+                            option.value = siteId;
+                            option.textContent = stationName;
+                            startStationSelect.appendChild(option);
+                        }
+                    }
+                });
+
+                line2Select.addEventListener('change', function () {
+                    const selectedLine = line2Select.value;
+                    const endStationSelect = document.getElementById('endStation');
+                    endStationSelect.innerHTML = '<option value="">--请选择站点--</option>';
+                    endStationSelect.selectedIndex = 0;
+                    for (const siteId in data.sites) {
+                        if (siteId.startsWith(selectedLine)) {
+                            const stationName = data.sites[siteId];
+                            const option = document.createElement('option');
+                            option.value = siteId;
+                            option.textContent = stationName;
+                            endStationSelect.appendChild(option);
+                        }
+                    }
+                });
+            });
+    }
+    // 切换地区时更新
+    document.getElementById('subwayData').addEventListener('change', updateSubwayData);
+</script>
+
+<script>
+    // 地铁图片
+    window.onload = function () {
+        var map = document.getElementById('map');
+        var img = new Image();
+        img.onload = function () {
+            var ratio = img.width / img.height;
+            var windowRatio = window.innerWidth / window.innerHeight;
+            if (ratio > windowRatio) {
+                map.style.width = '100%';
+                map.style.height = 'auto';
+            } else {
+                map.style.width = 'auto';
+                map.style.height = '100%';
+            }
+        };
+        img.src = map.src;
+    };
+
+    var map = document.getElementById('map');
+    var isDragging = false;
+    var previousMousePosition = { x: 0, y: 0 };
+
+    map.addEventListener('dragstart', function (event) {
+        event.preventDefault();
+    });
+
+    map.addEventListener('wheel', function (event) {
+        event.preventDefault();
+        var scale = event.deltaY < 0 ? 1.1 : 0.9;
+
+        // 计算鼠标位置相对于图片的位置
+        var rect = map.getBoundingClientRect();
+        var dx = event.clientX - rect.left;
+        var dy = event.clientY - rect.top;
+
+        // 计算缩放后的宽度和高度
+        var newWidth = map.offsetWidth * scale;
+        var newHeight = map.offsetHeight * scale;
+
+        // 计算缩放后的 left 和 top 值，以保持鼠标位置相对于图片的位置不变
+        var left = parseInt(map.style.left || 0);
+        var top = parseInt(map.style.top || 0);
+        map.style.left = left - (newWidth - map.offsetWidth) * (dx / map.offsetWidth) + 'px';
+        map.style.top = top - (newHeight - map.offsetHeight) * (dy / map.offsetHeight) + 'px';
+
+        // 设置新的宽度和高度
+        map.style.width = newWidth + 'px';
+        map.style.height = newHeight + 'px';
+    });
+
+    map.addEventListener('mousedown', function (event) {
+        isDragging = true;
+        previousMousePosition = { x: event.clientX, y: event.clientY };
+    });
+
+    window.addEventListener('mousemove', function (event) {
+        if (!isDragging) return;
+        var dx = event.clientX - previousMousePosition.x;
+        var dy = event.clientY - previousMousePosition.y;
+        var left = parseInt(map.style.left || 0);
+        var top = parseInt(map.style.top || 0);
+        map.style.left = left + dx + 'px';
+        map.style.top = top + dy + 'px';
+        previousMousePosition = { x: event.clientX, y: event.clientY };
+    });
+
+    window.addEventListener('mouseup', function (event) {
+        isDragging = false;
+    });
+</script>
+
 <script src="./renderer.js"></script>
 
 </html>
