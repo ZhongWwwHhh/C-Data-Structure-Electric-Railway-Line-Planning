@@ -1,10 +1,13 @@
 const { app, BrowserWindow, ipcMain } = require('electron/main')
-const path = require('node:path')
+
+const fs = require('fs');
+const path = require('path');
 
 // set true when develop without core
 const noCoreDevelop = false
 
 const { spawn } = require('child_process');
+const corePath = path.join(__dirname, 'core.exe');
 
 let errorMessage = 'None'
 let win
@@ -37,8 +40,6 @@ app.whenReady().then(() => {
     ipcMain.handle('getError', () => errorMessage)
 
     ipcMain.handle('listSubway', () => {
-        const fs = require('fs');
-        const path = require('path');
         const dataFolderPath = path.join(__dirname, 'Data');
         return new Promise((resolve, reject) => {
             fs.readdir(dataFolderPath, (err, files) => {
@@ -82,27 +83,28 @@ app.whenReady().then(() => {
     } else {
         try {
             // 启动core
-            let core = spawn('./core.exe');
+            let core = spawn(corePath);
             const readline = require('readline');
 
-            ipcMain.handle('readData', (event, path) => {
-                const fs = require('fs');
+            ipcMain.handle('readData', (event, relativePath) => {
+                // 转为绝对路径
+                const absolutePath = path.join(__dirname, relativePath);
                 // 检查文件是否存在
-                console.log(path)
-                if (!fs.existsSync(path)) {
-                    throw new Error(`File does not exist: ${path}`);
+                console.log(absolutePath)
+                if (!fs.existsSync(absolutePath)) {
+                    throw new Error(`File does not exist: ${absolutePath}`);
                 }
 
                 // 检查文件是否可读
-                fs.access(path, fs.constants.R_OK, (err) => {
+                fs.access(absolutePath, fs.constants.R_OK, (err) => {
                     if (err) {
-                        throw new Error(`File is not readable: ${path}`);
+                        throw new Error(`File is not readable: ${absolutePath}`);
                     }
                 });
                 // 停止当前的core进程
                 core.kill();
                 // 启动新的core进程
-                core = spawn('./core.exe');
+                core = spawn(corePath);
                 return new Promise((resolve, reject) => {
                     const rl = readline.createInterface({
                         input: core.stdout,
@@ -113,16 +115,22 @@ app.whenReady().then(() => {
                         const dataStr = line.trim();
                         console.log(dataStr);
                         if (dataStr === 'path:') {
-                            core.stdin.write(`${path}\n`);
+                            core.stdin.write(`${absolutePath}\n`);
                         } else if (dataStr === 'Success') {
+                            rl.close();
+                            core.stderr.removeAllListeners('data');
                             resolve(true);
                         } else {
+                            rl.close();
+                            core.stderr.removeAllListeners('data');
                             reject(dataStr);
                         }
                     });
 
                     core.stderr.once('data', (data) => {
                         console.log(data.toString());
+                        rl.close();
+                        core.stderr.removeAllListeners('data');
                         reject(data.toString());
                     });
                 });
@@ -135,12 +143,16 @@ app.whenReady().then(() => {
                     });
 
                     rl.once('line', (line) => {
+                        rl.close();
+                        core.stderr.removeAllListeners('data');
                         resolve(line);
                     });
 
                     core.stdin.write(`${startStation} ${endStation}\n`);
 
                     core.stderr.once('data', (data) => {
+                        rl.close();
+                        core.stderr.removeAllListeners('data');
                         reject(data.toString());
                     });
                 });
