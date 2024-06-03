@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('apiError', {
 })
 
 contextBridge.exposeInMainWorld('apiSearch', {
+  readData: (path) => ipcRenderer.invoke('readData', path),
   search: (startStation, endStation) => ipcRenderer.invoke('search', startStation, endStation),
   listSubway: () => ipcRenderer.invoke('listSubway')
 })

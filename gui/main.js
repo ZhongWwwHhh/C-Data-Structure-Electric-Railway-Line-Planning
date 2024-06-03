@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain } = require('electron/main')
 const path = require('node:path')
 
 // set true when develop without core
-const noCoreDevelop = true
+const noCoreDevelop = false
 
 const { spawn } = require('child_process');
 
@@ -74,7 +74,7 @@ app.whenReady().then(() => {
     })
 
     if (noCoreDevelop) {
-        ipcMain.handle('search', (startStation, endStation) => {
+        ipcMain.handle('search', (event, startStation, endStation) => {
             return new Promise((resolve, reject) => {
                 resolve('ok');
             });
@@ -82,10 +82,52 @@ app.whenReady().then(() => {
     } else {
         try {
             // 启动core
-            const core = spawn('core.exe');
+            let core = spawn('./core.exe');
             const readline = require('readline');
 
-            ipcMain.handle('search', (startStation, endStation) => {
+            ipcMain.handle('readData', (event, path) => {
+                const fs = require('fs');
+                // 检查文件是否存在
+                console.log(path)
+                if (!fs.existsSync(path)) {
+                    throw new Error(`File does not exist: ${path}`);
+                }
+
+                // 检查文件是否可读
+                fs.access(path, fs.constants.R_OK, (err) => {
+                    if (err) {
+                        throw new Error(`File is not readable: ${path}`);
+                    }
+                });
+                // 停止当前的core进程
+                core.kill();
+                // 启动新的core进程
+                core = spawn('./core.exe');
+                return new Promise((resolve, reject) => {
+                    const rl = readline.createInterface({
+                        input: core.stdout,
+                        output: process.stdout
+                    });
+
+                    rl.on('line', (line) => {
+                        const dataStr = line.trim();
+                        console.log(dataStr);
+                        if (dataStr === 'path:') {
+                            core.stdin.write(`${path}\n`);
+                        } else if (dataStr === 'Success') {
+                            resolve(true);
+                        } else {
+                            reject(dataStr);
+                        }
+                    });
+
+                    core.stderr.once('data', (data) => {
+                        console.log(data.toString());
+                        reject(data.toString());
+                    });
+                });
+            });
+            ipcMain.handle('search', (event, startStation, endStation) => {
                 return new Promise((resolve, reject) => {
                     const rl = readline.createInterface({
                         input: core.stdout,
