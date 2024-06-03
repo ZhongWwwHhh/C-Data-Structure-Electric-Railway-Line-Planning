@@ -223,11 +223,13 @@ int main()
         if (path[0] == -1)
         {
             printf("无法到达\n");
+            fflush(stdout);
             continue;
         }
         if (path[0] == 1)
         {
             printf("起点终点相同\n");
+            fflush(stdout);
             continue;
         }
 
