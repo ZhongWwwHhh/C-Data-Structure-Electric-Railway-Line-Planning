@@ -5,6 +5,49 @@
 #include "cJSON.h"
 #include "graph2.h"
 
+char *getLineName(const cJSON *jsonLines, const int *sitesIndex, const int dijIndex)
+{
+    // 线路和站点index转为字符型
+    char lineKey[4];
+    sprintf(lineKey, "%03d", sitesIndex[dijIndex] / 1000);
+    cJSON *jsonLine = cJSON_GetObjectItemCaseSensitive(jsonLines, lineKey);
+    if (jsonLine == NULL)
+    {
+        fprintf(stderr, "Unable to get line with key %s\n", lineKey);
+        exit(1);
+    }
+
+    char *jsonLineValue = cJSON_GetStringValue(jsonLine);
+    if (jsonLineValue == NULL)
+    {
+        fprintf(stderr, "Unable to get string value of line\n");
+        exit(1);
+    }
+
+    return jsonLineValue;
+}
+char *getSiteName(const cJSON *jsonSites, const int *sitesIndex, const int dijIndex)
+{
+    // 线路和站点index转为字符型
+    char siteKey[7];
+    sprintf(siteKey, "%06d", sitesIndex[dijIndex]);
+    cJSON *jsonSite = cJSON_GetObjectItemCaseSensitive(jsonSites, siteKey);
+    if (jsonSite == NULL)
+    {
+        fprintf(stderr, "Unable to get site with key %s\n", siteKey);
+        exit(1);
+    }
+
+    char *jsonSiteValue = cJSON_GetStringValue(jsonSite);
+    if (jsonSiteValue == NULL)
+    {
+        fprintf(stderr, "Unable to get string value of site\n");
+        exit(1);
+    }
+
+    return jsonSiteValue;
+}
+
 int main()
 {
     // 从stdin获取JSON文件地址
@@ -177,45 +220,56 @@ int main()
 
         int *path = dijkstra(subwayGraph, src, dest);
 
+        if (path[0] == -1)
+        {
+            printf("无法到达\n");
+            continue;
+        }
+        if (path[0] == 1)
+        {
+            printf("起点终点相同\n");
+            continue;
+        }
+
+        printf("用时: %d 分钟<br>", path[1]);
+
         char siteKey[7];
         char lineKey[4];
         int lineNow = -1;
         for (int i = 2; i < path[0] + 2; i++)
         {
+            if (i == 2)
+            {
+                if (sitesIndex[path[i]] / 1000 != sitesIndex[path[i + 1]] / 1000)
+                {
+                    lineNow = sitesIndex[path[i + 1]] / 1000;
+                    char *jsonSiteValue = getSiteName(jsonSites, sitesIndex, path[i]);
+                    char *jsonLineValue = getLineName(jsonLines, sitesIndex, path[i]);
+                    char *jsonLineValueOtherStart = getLineName(jsonLines, sitesIndex, path[i + 1]);
+                    printf("%s/%s: %s -> ", jsonLineValue, jsonLineValueOtherStart, jsonSiteValue);
+                    continue;
+                }
+            }
+            if (i == path[0])
+            {
+                if (sitesIndex[path[i]] / 1000 != sitesIndex[path[i + 1]] / 1000)
+                {
+                    lineNow = sitesIndex[path[i + 1]] / 1000;
+                    char *jsonSiteValue = getSiteName(jsonSites, sitesIndex, path[i]);
+                    char *jsonLineValue = getLineName(jsonLines, sitesIndex, path[i]);
+                    char *jsonLineValueOtherEnd = getLineName(jsonLines, sitesIndex, path[i + 1]);
+                    printf("%s/%s: %s", jsonLineValue, jsonLineValueOtherEnd, jsonSiteValue);
+                    break;
+                }
+            }
             if (lineNow != sitesIndex[path[i]] / 1000 || i == path[0] + 1)
             {
                 lineNow = sitesIndex[path[i]] / 1000;
 
                 for (int j = (i == path[0] + 1 || i == 2 ? i : i - 1); j <= i; j++)
                 {
-                    // 线路和站点index转为字符型
-                    sprintf(lineKey, "%03d", sitesIndex[path[j]] / 1000);
-                    sprintf(siteKey, "%06d", sitesIndex[path[j]]);
-                    cJSON *jsonSite = cJSON_GetObjectItemCaseSensitive(jsonSites, siteKey);
-                    cJSON *jsonLine = cJSON_GetObjectItemCaseSensitive(jsonLines, lineKey);
-                    if (jsonSite == NULL)
-                    {
-                        fprintf(stderr, "Unable to get site with key %s\n", siteKey);
-                        exit(1);
-                    }
-                    if (jsonLine == NULL)
-                    {
-                        fprintf(stderr, "Unable to get line with key %s\n", lineKey);
-                        exit(1);
-                    }
-
-                    const char *jsonSiteValue = cJSON_GetStringValue(jsonSite);
-                    const char *jsonLineValue = cJSON_GetStringValue(jsonLine);
-                    if (jsonSiteValue == NULL)
-                    {
-                        fprintf(stderr, "Unable to get string value of site\n");
-                        exit(1);
-                    }
-                    if (jsonLineValue == NULL)
-                    {
-                        fprintf(stderr, "Unable to get string value of line\n");
-                        exit(1);
-                    }
+                    char *jsonSiteValue = getSiteName(jsonSites, sitesIndex, path[j]);
+                    char *jsonLineValue = getLineName(jsonLines, sitesIndex, path[j]);
 
                     printf("%s: %s", jsonLineValue, jsonSiteValue);
                     if (j != i)
