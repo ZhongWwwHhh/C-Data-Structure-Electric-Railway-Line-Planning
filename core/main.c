@@ -10,6 +10,7 @@ int main()
     // 从stdin获取JSON文件地址
     char jsonFilePath[256];
     printf("path:\n");
+    fflush(stdout);
     fgets(jsonFilePath, sizeof(jsonFilePath), stdin);
     jsonFilePath[strcspn(jsonFilePath, "\n")] = '\0';
 
@@ -146,6 +147,7 @@ int main()
 
     // 读取文件成功
     puts("Success");
+    fflush(stdout);
 
     int srcIndex, destIndex;
 
@@ -228,6 +230,7 @@ int main()
             }
         }
         printf("\n");
+        fflush(stdout);
     }
 
     // 释放
